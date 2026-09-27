@@ -46,4 +46,41 @@ export default {
   //
   , "openTheCalendarPanel": "打开日历面板"
 
+  // 排除目录勾选器
+  , "excludeFolderHint": "勾选需要排除的目录（不勾选则统计全库）"
+  , "excludeFolderAll": "全选"
+  , "excludeFolderNone": "清空"
+  , "excludeFolderFilter": "筛选目录…"
+  , "excludeFolderEmpty": "库中没有可选择的子文件夹。"
+
+  // 统计面板
+  , "statsToday": "今日"
+  , "statsMonth": "本月"
+  , "statsYear": "本年"
+  , "statsUnit": "字"
+
+  // 自定义时间范围
+  , "customRange": "自定义时间范围"
+  , "rangeCalc": "统计"
+  , "rangeClear": "清除"
+  , "rangeTotal": "区间合计"
+  , "rangeDaysSuffix": " 天"
+  , "rangeEmpty": "请先选择起始日期和结束日期。"
+  , "rangeInvalid": "结束日期不能早于起始日期。"
+
+  // 文件明细
+  , "fileBreakdown": "文件明细"
+  , "fileBreakdownHint": "点文件名可直接打开该文件"
+  , "fileBreakdownEmpty": "这一天没有字数记录。"
+  , "fileBreakdownNone": "暂无明细数据（明细从本版本启用后开始记录）。"
+  , "fileBreakdownManual": "手动调整"
+  , "fileBreakdownFileCount": "个文件"
+  , "fileBreakdownMissing": "库中已找不到该文件："
+
+  // 防复制粘贴
+  , "pasteProtection": "防复制粘贴"
+  , "pasteProtectionDesc": "开启后，单次新增超过阈值字数视为复制/粘贴，不计入当日统计"
+  , "pasteThreshold": "粘贴阈值（字）"
+  , "pasteThresholdDesc": "单次新增超过该字数即视为复制/粘贴；设为 0 表示不限制。"
+
 };

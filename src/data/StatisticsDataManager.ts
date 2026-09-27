@@ -18,6 +18,8 @@ export class DailyStatisticsData {
   weeklyPlan: Record<string, number> = {};
   // 当日手动修改的字数
   currentManuallyModifyWordCount: number = 0;
+  // 每日分文件明细：日期 -> {文件路径: 增量字数}
+  dayFiles: Record<string, Record<string, number>> = {};
 }
 
 export class DailyStatisticsDataManager {
@@ -201,35 +203,30 @@ export class DailyStatisticsDataManager {
   * 异步执行监听器，数据保存之后的回调
   */
   afterDataSave() {
-    new Promise(() => {
-      for (const listener of this.dataSaveListeners) {
-        try {
-          listener.onSave(this.data);
-          // // // console.log("dataSaveListener 执行完成, listenerId is " + listener.getListenerId());
-        } catch (error) {
-          console.error(
-            "dataSaveListeners, 执行异常, listenerId is " +
-            listener.getListenerId(),
-            error
-          );
-        }
+    for (const listener of this.dataSaveListeners) {
+      try {
+        listener.onSave(this.data);
+      } catch (error) {
+        console.error(
+          "dataSaveListeners, 执行异常, listenerId is " +
+          listener.getListenerId(),
+          error
+        );
       }
-    });
+    }
   }
 
   /**
    * 异步执行监听器，数据同步之后的回调
    */
   afterDataSync() {
-    new Promise(() => {
-      for (const listener of this.dataSyncListeners) {
-        try {
-          listener.onSync(this.data);
-        } catch (error) {
-          console.error("dataSyncListeners, 执行异常, listenerId is " + listener.getListenerId(), error);
-        }
+    for (const listener of this.dataSyncListeners) {
+      try {
+        listener.onSync(this.data);
+      } catch (error) {
+        console.error("dataSyncListeners, 执行异常, listenerId is " + listener.getListenerId(), error);
       }
-    });
+    }
   }
 
   /**
@@ -281,22 +278,40 @@ export class DailyStatisticsDataManager {
       contents = await this.app.vault.read(tempFile);
     }
     const curr = this.getWordCount(contents);
-    // console.log("updateWordCount", curr);
-    if (Object.prototype.hasOwnProperty.call(this.data.dayCounts, this.today)) {
-      if (
-        Object.prototype.hasOwnProperty.call(this.data.todayWordCount, filepath)
-      ) {
-        // 当前文件已有记录，则更新当前字数
-        this.data.todayWordCount[filepath].current = curr;
-      } else {
-        // 当前文件没有记录，新增记录
-        this.data.todayWordCount[filepath] = { initial: curr, current: curr };
-      }
-    } else {
-      // 新的一天，清空当天的记录
+
+    if (!Object.prototype.hasOwnProperty.call(this.data.dayCounts, this.today)) {
+      // 新的一天：清空当天记录，建立当前文件的基线
       this.data.todayWordCount = {};
       this.data.todayWordCount[filepath] = { initial: curr, current: curr };
+      this.updateCounts();
+      return;
     }
+    if (!Object.prototype.hasOwnProperty.call(this.data.todayWordCount, filepath)) {
+      // 当前文件还没有记录，新增基线
+      this.data.todayWordCount[filepath] = { initial: curr, current: curr };
+      this.updateCounts();
+      return;
+    }
+
+    // 当前文件已有记录：计算本次增量
+    const wordCount = this.data.todayWordCount[filepath];
+    const delta = curr - (wordCount.current || 0);
+
+    // 防复制粘贴：单次新增超过阈值视为一次复制/粘贴，该次内容不计入当日统计
+    const settings = (this.plugin && this.plugin.settings) || {};
+    const threshold = Number(settings.pasteThreshold);
+    if (
+      settings.pasteProtection !== false &&
+      threshold > 0 &&
+      delta > threshold
+    ) {
+      wordCount.initial = (wordCount.initial || 0) + delta;
+      console.log(
+        "daily-statistics: 单次新增 " + delta + " 字（超过 " + threshold +
+        " 字），按复制粘贴处理，不计入当日字数统计"
+      );
+    }
+    wordCount.current = curr;
     this.updateCounts();
   }
 
@@ -312,8 +327,39 @@ export class DailyStatisticsDataManager {
     // console.log("currentWordCount", this.currentWordCount);
     this.currentWordCount += this.data.currentManuallyModifyWordCount;
     this.data.dayCounts[this.today] = this.currentWordCount;
+    // 记录当天的分文件明细（供文件明细面板使用）
+    this.recordDayFiles();
     // console.log("updateCounts", this.data);
     this.saveStatisticsData().then();
+  }
+
+  /**
+   * 把当天各文件的增量写进 data.dayFiles，随主数据一起落盘。
+   * 只记录当天真正有增量的文件（增量 > 0）。
+   */
+  private recordDayFiles() {
+    const day = this.today;
+    if (!day) {
+      return;
+    }
+    const files: Record<string, number> = {};
+    for (const path in this.data.todayWordCount) {
+      if (!Object.prototype.hasOwnProperty.call(this.data.todayWordCount, path)) {
+        continue;
+      }
+      const n = Math.max(
+        0,
+        (this.data.todayWordCount[path].current || 0) -
+        (this.data.todayWordCount[path].initial || 0)
+      );
+      if (n > 0) {
+        files[path] = n;
+      }
+    }
+    if (!this.data.dayFiles || typeof this.data.dayFiles !== "object") {
+      this.data.dayFiles = {};
+    }
+    this.data.dayFiles[day] = files;
   }
 
   updateCurrentWordCount(wordCount: number) {

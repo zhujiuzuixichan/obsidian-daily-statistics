@@ -49,4 +49,41 @@ export default {
   //
   , "openTheCalendarPanel": "Open calendar panel"
 
+  // Exclude folder picker
+  , "excludeFolderHint": "Tick the folders to exclude (nothing ticked = count the whole vault)"
+  , "excludeFolderAll": "Select all"
+  , "excludeFolderNone": "Clear"
+  , "excludeFolderFilter": "Filter folders…"
+  , "excludeFolderEmpty": "There are no subfolders in the vault."
+
+  // Stats panel
+  , "statsToday": "Today"
+  , "statsMonth": "This month"
+  , "statsYear": "This year"
+  , "statsUnit": "words"
+
+  // Custom range
+  , "customRange": "Custom range"
+  , "rangeCalc": "Count"
+  , "rangeClear": "Clear"
+  , "rangeTotal": "Range total"
+  , "rangeDaysSuffix": " day(s)"
+  , "rangeEmpty": "Please pick both a start date and an end date."
+  , "rangeInvalid": "The end date cannot be earlier than the start date."
+
+  // File breakdown
+  , "fileBreakdown": "File detail"
+  , "fileBreakdownHint": "Click a file name to open it"
+  , "fileBreakdownEmpty": "No words recorded for this day."
+  , "fileBreakdownNone": "No detail yet (recording starts with this version)."
+  , "fileBreakdownManual": "Manual adjustment"
+  , "fileBreakdownFileCount": "file(s)"
+  , "fileBreakdownMissing": "File no longer in the vault: "
+
+  // Anti paste
+  , "pasteProtection": "Anti paste"
+  , "pasteProtectionDesc": "When enabled, a single increase over the threshold is treated as paste and not counted"
+  , "pasteThreshold": "Paste threshold (chars)"
+  , "pasteThresholdDesc": "A single increase over this size is treated as paste; 0 disables the limit."
+
 };

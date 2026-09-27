@@ -11,4 +11,9 @@ export class DailyStatisticsSettings {
   enablePlan = true;
   // 一周开始时间
   weekStart = 0;
+
+  // 防复制粘贴：单次新增超过阈值字数视为粘贴，不计入当日统计
+  pasteProtection = true;
+  // 粘贴阈值（字），设为 0 表示不限制
+  pasteThreshold = 1000;
 }
