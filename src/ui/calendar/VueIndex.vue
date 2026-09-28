@@ -82,6 +82,7 @@ watch(() => store.getters.weekStart, () => {
 .ds-vue-host{display:block}
 .ds-stats-panel{margin-top:10px;padding:8px 10px;border-top:1px solid var(--background-modifier-border);font-size:12px;color:var(--text-normal)}
 .ds-stats-group{display:flex;flex-direction:column;gap:4px}
+.ds-stats-subgroup{margin-top:8px;padding-top:8px;border-top:1px solid var(--background-modifier-border)}
 .ds-stats-row{display:flex;align-items:center;gap:6px;line-height:1.6}
 .ds-stats-label{color:var(--text-muted);white-space:nowrap}
 .ds-stats-value{margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums}

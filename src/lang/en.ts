@@ -58,9 +58,18 @@ export default {
 
   // Stats panel
   , "statsToday": "Today"
+  , "statsWeek": "This week"
   , "statsMonth": "This month"
   , "statsYear": "This year"
   , "statsUnit": "words"
+  , "statsUnitPerDay": "words/day"
+  , "statsWeekAvg": "This week daily avg"
+  , "statsMonthAvg": "This month daily avg"
+  , "statsYearAvg": "This year daily avg"
+  , "statsDayPeak": "Daily peak"
+  , "statsWeekPeak": "Weekly peak"
+  , "statsMonthPeak": "Monthly peak"
+  , "statsYearPeak": "Yearly peak"
 
   // Custom range
   , "customRange": "Custom range"

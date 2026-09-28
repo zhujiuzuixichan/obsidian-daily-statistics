@@ -30,6 +30,17 @@ function dsFormatNumber(e: number | string): string {
   return t.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+/* 日均值格式化：保留 1 位小数，整数则不带小数，整数部分加千分位 */
+function dsFormatAvg(n: number): string {
+  const v = Math.round(n * 10) / 10;
+  const fixed = v.toFixed(1).replace(/\.0$/, "");
+  const dot = fixed.indexOf(".");
+  if (dot < 0) {
+    return dsFormatNumber(fixed);
+  }
+  return dsFormatNumber(fixed.slice(0, dot)) + fixed.slice(dot);
+}
+
 function dsFileDelta(e: { current?: number; initial?: number } | undefined): number {
   const cur = Number(e && e.current) || 0;
   const ini = Number(e && e.initial) || 0;
@@ -132,8 +143,16 @@ interface DsStatRow {
 
 interface DsStatsEls {
   today: DsStatRow;
+  week: DsStatRow;
   month: DsStatRow;
   year: DsStatRow;
+  weekAvg: DsStatRow;
+  monthAvg: DsStatRow;
+  yearAvg: DsStatRow;
+  dayPeak: DsStatRow;
+  weekPeak: DsStatRow;
+  monthPeak: DsStatRow;
+  yearPeak: DsStatRow;
   range: DsStatRow;
   startEl: HTMLInputElement;
   endEl: HTMLInputElement;
@@ -305,14 +324,14 @@ export class CalendarView extends ItemView {
     const self = this;
     const t = i18n.global.t;
 
-    const mkRow = (parent: HTMLElement, extraCls?: string): DsStatRow => {
+    const mkRow = (parent: HTMLElement, extraCls?: string, unitText?: string): DsStatRow => {
       const row = parent.createDiv({
         cls: extraCls ? "ds-stats-row " + extraCls : "ds-stats-row",
       });
       const label = row.createSpan({ cls: "ds-stats-label" });
       const value = row.createSpan({ cls: "ds-stats-value" });
+      const unit = row.createSpan({ cls: "ds-stats-unit", text: unitText ?? t("statsUnit") });
       const alt = row.createSpan({ cls: "ds-stats-alt" });
-      const unit = row.createSpan({ cls: "ds-stats-unit", text: t("statsUnit") });
       return { label, value, alt, unit, row };
     };
 
@@ -320,8 +339,20 @@ export class CalendarView extends ItemView {
 
     const fixed = panel.createDiv({ cls: "ds-stats-group" });
     const rToday = mkRow(fixed);
+    const rWeek = mkRow(fixed);
     const rMonth = mkRow(fixed);
     const rYear = mkRow(fixed);
+
+    const avgGroup = panel.createDiv({ cls: "ds-stats-group ds-stats-subgroup" });
+    const rWeekAvg = mkRow(avgGroup, undefined, t("statsUnitPerDay"));
+    const rMonthAvg = mkRow(avgGroup, undefined, t("statsUnitPerDay"));
+    const rYearAvg = mkRow(avgGroup, undefined, t("statsUnitPerDay"));
+
+    const peakGroup = panel.createDiv({ cls: "ds-stats-group ds-stats-subgroup" });
+    const rDayPeak = mkRow(peakGroup);
+    const rWeekPeak = mkRow(peakGroup);
+    const rMonthPeak = mkRow(peakGroup);
+    const rYearPeak = mkRow(peakGroup);
 
     /* 文件明细（可折叠，默认展开） */
     const detail = panel.createDiv({ cls: "ds-stats-group ds-detail is-open" });
@@ -366,8 +397,16 @@ export class CalendarView extends ItemView {
 
     this._dsEls = {
       today: rToday,
+      week: rWeek,
       month: rMonth,
       year: rYear,
+      weekAvg: rWeekAvg,
+      monthAvg: rMonthAvg,
+      yearAvg: rYearAvg,
+      dayPeak: rDayPeak,
+      weekPeak: rWeekPeak,
+      monthPeak: rMonthPeak,
+      yearPeak: rYearPeak,
       range: rRange,
       startEl,
       endEl,
@@ -423,38 +462,131 @@ export class CalendarView extends ItemView {
     const t = i18n.global.t;
     const table = DailyStatisticsDataManagerInstance.data.dayCounts || {};
 
-    const monthKey = this.dsResolveMonth();
-    const yearKey = String(monthKey).slice(0, 4);
-    const todayKey = dayjs().format("YYYY-MM-DD");
+    const now = dayjs();
+    const todayKey = now.format("YYYY-MM-DD");
+    const monthKey = now.format("YYYY-MM");
+    const yearKey = now.format("YYYY");
 
-    const sumOf = (src: Record<string, number>) => {
-      const r = { today: 0, month: 0, year: 0 };
-      for (const k in src) {
-        if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
-        const v = src[k] || 0;
-        if (k === todayKey) r.today += v;
-        if (k.slice(0, 7) === monthKey) r.month += v;
-        if (k.slice(0, 4) === yearKey) r.year += v;
+    // 各周期已进行的天数（含今天）
+    const weekElapsed = now.diff(now.startOf("week"), "day") + 1;
+    const monthElapsed = now.date();
+    const yearElapsed = now.diff(now.startOf("year"), "day") + 1;
+
+    // 周期合计
+    let sToday = 0;
+    let sWeek = 0;
+    let sMonth = 0;
+    let sYear = 0;
+
+    // 峰值聚合
+    let dayPeak = 0;
+    let dayPeakKey = "";
+    const weekSum: Record<string, number> = {};
+    const monthSum: Record<string, number> = {};
+    const yearSum: Record<string, number> = {};
+
+    for (const k in table) {
+      if (!Object.prototype.hasOwnProperty.call(table, k)) continue;
+      const v = Number(table[k]) || 0;
+      const d = dayjs(k);
+      if (!d.isValid()) continue;
+
+      if (k === todayKey) sToday += v;
+      if (d.isSame(now, "week")) sWeek += v;
+      if (k.slice(0, 7) === monthKey) sMonth += v;
+      if (k.slice(0, 4) === yearKey) sYear += v;
+
+      if (v > dayPeak) {
+        dayPeak = v;
+        dayPeakKey = k;
       }
-      return r;
-    };
-    const A = sumOf(table);
 
-    const alt = (row: DsStatRow | null) => {
+      const wk = d.startOf("week").format("YYYY-MM-DD");
+      weekSum[wk] = (weekSum[wk] || 0) + v;
+      const mk = k.slice(0, 7);
+      monthSum[mk] = (monthSum[mk] || 0) + v;
+      const yk = k.slice(0, 4);
+      yearSum[yk] = (yearSum[yk] || 0) + v;
+    }
+
+    let weekPeak = 0;
+    let weekPeakKey = "";
+    for (const k in weekSum) {
+      if (weekSum[k] > weekPeak) {
+        weekPeak = weekSum[k];
+        weekPeakKey = k;
+      }
+    }
+    let monthPeak = 0;
+    let monthPeakKey = "";
+    for (const k in monthSum) {
+      if (monthSum[k] > monthPeak) {
+        monthPeak = monthSum[k];
+        monthPeakKey = k;
+      }
+    }
+    let yearPeak = 0;
+    let yearPeakKey = "";
+    for (const k in yearSum) {
+      if (yearSum[k] > yearPeak) {
+        yearPeak = yearSum[k];
+        yearPeakKey = k;
+      }
+    }
+
+    const weekAvg = weekElapsed > 0 ? sWeek / weekElapsed : 0;
+    const monthAvg = monthElapsed > 0 ? sMonth / monthElapsed : 0;
+    const yearAvg = yearElapsed > 0 ? sYear / yearElapsed : 0;
+
+    const alt = (row: DsStatRow | null, text?: string) => {
       if (!row || !row.alt) return;
-      row.alt.setText("");
-      if (row.alt.style) row.alt.style.display = "none";
+      if (text) {
+        row.alt.setText(text);
+        if (row.alt.style) row.alt.style.display = "";
+      } else {
+        row.alt.setText("");
+        if (row.alt.style) row.alt.style.display = "none";
+      }
     };
 
+    // 周期合计
     e.today.label.setText(t("statsToday"));
-    e.today.value.setText(dsFormatNumber(A.today));
+    e.today.value.setText(dsFormatNumber(sToday));
     alt(e.today);
+    e.week.label.setText(t("statsWeek"));
+    e.week.value.setText(dsFormatNumber(sWeek));
+    alt(e.week);
     e.month.label.setText(t("statsMonth") + "（" + monthKey + "）");
-    e.month.value.setText(dsFormatNumber(A.month));
+    e.month.value.setText(dsFormatNumber(sMonth));
     alt(e.month);
     e.year.label.setText(t("statsYear") + "（" + yearKey + "）");
-    e.year.value.setText(dsFormatNumber(A.year));
+    e.year.value.setText(dsFormatNumber(sYear));
     alt(e.year);
+
+    // 日均输入
+    e.weekAvg.label.setText(t("statsWeekAvg"));
+    e.weekAvg.value.setText(dsFormatAvg(weekAvg));
+    alt(e.weekAvg);
+    e.monthAvg.label.setText(t("statsMonthAvg"));
+    e.monthAvg.value.setText(dsFormatAvg(monthAvg));
+    alt(e.monthAvg);
+    e.yearAvg.label.setText(t("statsYearAvg"));
+    e.yearAvg.value.setText(dsFormatAvg(yearAvg));
+    alt(e.yearAvg);
+
+    // 输入峰值
+    e.dayPeak.label.setText(t("statsDayPeak"));
+    e.dayPeak.value.setText(dsFormatNumber(dayPeak));
+    alt(e.dayPeak, dayPeakKey || undefined);
+    e.weekPeak.label.setText(t("statsWeekPeak"));
+    e.weekPeak.value.setText(dsFormatNumber(weekPeak));
+    alt(e.weekPeak, weekPeakKey || undefined);
+    e.monthPeak.label.setText(t("statsMonthPeak"));
+    e.monthPeak.value.setText(dsFormatNumber(monthPeak));
+    alt(e.monthPeak, monthPeakKey || undefined);
+    e.yearPeak.label.setText(t("statsYearPeak"));
+    e.yearPeak.value.setText(dsFormatNumber(yearPeak));
+    alt(e.yearPeak, yearPeakKey || undefined);
 
     const rg = this._dsRange || { from: "", to: "" };
     if (rg.from && rg.to) {

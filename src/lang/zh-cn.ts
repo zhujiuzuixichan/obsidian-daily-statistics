@@ -55,9 +55,18 @@ export default {
 
   // 统计面板
   , "statsToday": "今日"
+  , "statsWeek": "本周"
   , "statsMonth": "本月"
   , "statsYear": "本年"
   , "statsUnit": "字"
+  , "statsUnitPerDay": "字/天"
+  , "statsWeekAvg": "本周日均输入"
+  , "statsMonthAvg": "本月日均输入"
+  , "statsYearAvg": "本年日均输入"
+  , "statsDayPeak": "单日输入峰值"
+  , "statsWeekPeak": "单周输入峰值"
+  , "statsMonthPeak": "单月输入峰值"
+  , "statsYearPeak": "单年输入峰值"
 
   // 自定义时间范围
   , "customRange": "自定义时间范围"
