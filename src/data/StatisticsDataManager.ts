@@ -44,6 +44,12 @@ export class DailyStatisticsDataManager {
    */
   dataSynchronTime: number = 0;
 
+  /**
+   * 最近的剪切事件队列，用于「剪切-粘贴」配对（移动检测）。
+   * 当剪切字数与后续粘贴字数相同时，视为一次移动，不做统计。
+   */
+  private recentCuts: { amount: number; path: string; time: number }[] = [];
+
   constructor() {
     // 给一个默认值，避免出错
     this.data = new DailyStatisticsData();
@@ -305,15 +311,24 @@ export class DailyStatisticsDataManager {
       threshold > 0 &&
       delta > threshold
     ) {
+      // 尝试与最近的剪切配对：剪切字数 == 粘贴字数，视为一次移动（剪切-粘贴），不做统计
+      const matchedCut = this.matchRecentCut(delta);
       wordCount.initial = (wordCount.initial || 0) + delta;
-      console.log(
-        "daily-statistics: 单次新增 " + delta + " 字（超过 " + threshold +
-        " 字），按复制粘贴处理，不计入当日字数统计"
-      );
+      if (matchedCut) {
+        console.log(
+          "daily-statistics: 剪切 " + delta + " 字 + 粘贴 " + delta +
+          " 字（字数相同），按移动处理，不计入当日字数统计"
+        );
+      } else {
+        console.log(
+          "daily-statistics: 单次新增 " + delta + " 字（超过 " + threshold +
+          " 字），按复制粘贴处理，不计入当日字数统计"
+        );
+      }
     }
 
     // 防剪切：单次减少超过阈值视为一次剪切（内容移动到新文档），
-    // 原文档基线回退到剪切后字数，该次减少不计入当日统计
+    // 原文档基线回退到剪切后字数，该次减少不计入当日统计，并记录剪切事件供后续配对
     const cutThreshold = Number(settings.cutThreshold);
     if (
       settings.cutProtection !== false &&
@@ -321,6 +336,7 @@ export class DailyStatisticsDataManager {
       delta < -cutThreshold
     ) {
       wordCount.initial = (wordCount.initial || 0) + delta;
+      this.recordCut(filepath, -delta);
       console.log(
         "daily-statistics: 单次减少 " + -delta + " 字（超过 " + cutThreshold +
         " 字），按剪切处理，原文档以剪切后字数为准，不计入当日减少"
@@ -328,6 +344,31 @@ export class DailyStatisticsDataManager {
     }
     wordCount.current = curr;
     this.updateCounts();
+  }
+
+  /**
+   * 记录一次剪切事件，用于「剪切-粘贴」配对。只保留最近 60 秒内的记录。
+   */
+  private recordCut(path: string, amount: number) {
+    const now = Date.now();
+    this.recentCuts = this.recentCuts.filter((c) => now - c.time < 60000);
+    this.recentCuts.push({ amount, path, time: now });
+  }
+
+  /**
+   * 尝试为一次粘贴匹配最近的剪切事件（字数相同才匹配）。
+   * 命中后移除该剪切事件并返回 true。
+   */
+  private matchRecentCut(amount: number): boolean {
+    const now = Date.now();
+    const idx = this.recentCuts.findIndex(
+      (c) => now - c.time < 60000 && c.amount === amount
+    );
+    if (idx >= 0) {
+      this.recentCuts.splice(idx, 1);
+      return true;
+    }
+    return false;
   }
 
   updateDate() {
