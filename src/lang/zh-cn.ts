@@ -92,4 +92,10 @@ export default {
   , "pasteThreshold": "粘贴阈值（字）"
   , "pasteThresholdDesc": "单次新增超过该字数即视为复制/粘贴；设为 0 表示不限制。"
 
+  // 防剪切
+  , "cutProtection": "防剪切"
+  , "cutProtectionDesc": "开启后，单次减少超过阈值字数视为剪切（如移动到新文档），原文档字数以剪切后为准，不计入当日减少"
+  , "cutThreshold": "剪切阈值（字）"
+  , "cutThresholdDesc": "单次减少超过该字数即视为剪切；设为 0 表示不限制。"
+
 };

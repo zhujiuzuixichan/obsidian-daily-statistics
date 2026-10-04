@@ -95,4 +95,10 @@ export default {
   , "pasteThreshold": "Paste threshold (chars)"
   , "pasteThresholdDesc": "A single increase over this size is treated as paste; 0 disables the limit."
 
+  // Anti cut
+  , "cutProtection": "Anti cut"
+  , "cutProtectionDesc": "When enabled, a single decrease over the threshold is treated as a cut (e.g. moved to a new file); the original file is re-based on its post-cut size and not counted as a decrease"
+  , "cutThreshold": "Cut threshold (chars)"
+  , "cutThresholdDesc": "A single decrease over this size is treated as a cut; 0 disables the limit."
+
 };

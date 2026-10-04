@@ -311,6 +311,21 @@ export class DailyStatisticsDataManager {
         " 字），按复制粘贴处理，不计入当日字数统计"
       );
     }
+
+    // 防剪切：单次减少超过阈值视为一次剪切（内容移动到新文档），
+    // 原文档基线回退到剪切后字数，该次减少不计入当日统计
+    const cutThreshold = Number(settings.cutThreshold);
+    if (
+      settings.cutProtection !== false &&
+      cutThreshold > 0 &&
+      delta < -cutThreshold
+    ) {
+      wordCount.initial = (wordCount.initial || 0) + delta;
+      console.log(
+        "daily-statistics: 单次减少 " + -delta + " 字（超过 " + cutThreshold +
+        " 字），按剪切处理，原文档以剪切后字数为准，不计入当日减少"
+      );
+    }
     wordCount.current = curr;
     this.updateCounts();
   }

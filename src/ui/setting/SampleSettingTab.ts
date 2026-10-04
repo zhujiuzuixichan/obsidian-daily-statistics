@@ -51,6 +51,9 @@ export class SampleSettingTab extends PluginSettingTab {
     // 防复制粘贴开关 + 阈值
     this.buildPasteProtectionSetting(containerEl, t);
 
+    // 防剪切开关 + 阈值
+    this.buildCutProtectionSetting(containerEl, t);
+
       new Setting(containerEl)
       .setName(t("statisticsWord"))
       .setDesc(t("statisticsWordExplained"))
@@ -246,6 +249,38 @@ export class SampleSettingTab extends PluginSettingTab {
           let v = parseInt(value, 10);
           if (isNaN(v) || v < 0) v = 0;
           plugin.settings.pasteThreshold = v;
+          await plugin.saveSettings();
+        });
+      });
+  }
+
+  /**
+   * 防剪切：开关 + 阈值
+   */
+  private buildCutProtectionSetting(containerEl: HTMLElement, t: (key: string) => string) {
+    const plugin = this.plugin;
+    new Setting(containerEl)
+      .setName(t("cutProtection"))
+      .setDesc(t("cutProtectionDesc"))
+      .addToggle((component) =>
+        component
+          .setValue(plugin.settings.cutProtection !== false)
+          .onChange(async (value) => {
+            plugin.settings.cutProtection = value;
+            await plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("cutThreshold"))
+      .setDesc(t("cutThresholdDesc"))
+      .addText((text) => {
+        let init = Number(plugin.settings.cutThreshold);
+        if (!(init > 0)) init = 1000;
+        text.setValue(String(init)).onChange(async (value) => {
+          let v = parseInt(value, 10);
+          if (isNaN(v) || v < 0) v = 0;
+          plugin.settings.cutThreshold = v;
           await plugin.saveSettings();
         });
       });
