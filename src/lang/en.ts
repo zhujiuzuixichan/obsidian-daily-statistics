@@ -101,4 +101,8 @@ export default {
   , "cutThreshold": "Cut threshold (chars)"
   , "cutThresholdDesc": "A single decrease over this size is treated as a cut; 0 disables the limit."
 
+  // Intra-vault copy-paste
+  , "internalCopyProtection": "Ignore intra-vault copy-paste"
+  , "internalCopyProtectionDesc": "When enabled, text copied from a note and pasted into the same or another note is not counted toward the daily word count."
+
 };

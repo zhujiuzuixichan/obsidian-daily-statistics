@@ -151,6 +151,58 @@ export default class DailyStatisticsPlugin extends Plugin {
       this.app.workspace.on("file-open", this.onFileOpen.bind(this))
     );
 
+    // 监听库内复制：记录「在 Obsidian 编辑器内复制」的文字，用于识别「内部复制 → 粘贴」
+    this.registerDomEvent(document, "copy", (evt: ClipboardEvent) => {
+      const target = evt.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+      const inEditor = !!(
+        target.closest(".cm-editor") ||
+        target.closest(".markdown-source-view") ||
+        target.closest(".markdown-preview-view")
+      );
+      if (!inEditor) {
+        return;
+      }
+      const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+      if (!view) {
+        return;
+      }
+      let text = "";
+      if (view.getMode() === "preview") {
+        const sel = window.getSelection();
+        text = sel ? sel.toString() : "";
+      } else {
+        text = view.editor.getSelection();
+      }
+      if (text && text.length > 0) {
+        DailyStatisticsDataManagerInstance.recordInternalCopy(text);
+      }
+    });
+
+    // 监听粘贴：识别「Obsidian 内部复制 → 粘贴」，命中则记录待扣除字数
+    this.registerEvent(
+      this.app.workspace.on("editor-paste", (evt, _editor, info) => {
+        let text = "";
+        try {
+          const dt = evt.clipboardData;
+          text = (dt && (dt.getData("text/plain") || dt.getData("text"))) || "";
+        } catch (e) {
+          /* ignore */
+        }
+        if (!text) {
+          return;
+        }
+        const file =
+          info instanceof MarkdownView ? info.file : (info as MarkdownFileInfo).file;
+        if (!file) {
+          return;
+        }
+        DailyStatisticsDataManagerInstance.onInternalPaste(file.path, text);
+      })
+    );
+
     // This adds a settings tab so the user can configure various aspects of the plugin
     this.addSettingTab(new SampleSettingTab(this.app, this));
 

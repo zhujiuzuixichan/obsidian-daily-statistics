@@ -21,4 +21,7 @@ export class DailyStatisticsSettings {
   cutProtection = true;
   // 剪切阈值（字），设为 0 表示不限制
   cutThreshold = 1000;
+
+  // 库内复制粘贴：从 Obsidian 某文档内复制文字并粘贴到同一/另一文档时，不计入当日统计
+  internalCopyProtection = true;
 }

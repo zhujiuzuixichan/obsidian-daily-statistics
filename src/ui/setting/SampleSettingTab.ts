@@ -54,6 +54,9 @@ export class SampleSettingTab extends PluginSettingTab {
     // 防剪切开关 + 阈值
     this.buildCutProtectionSetting(containerEl, t);
 
+    // 库内复制粘贴不计入统计
+    this.buildInternalCopyProtectionSetting(containerEl, t);
+
       new Setting(containerEl)
       .setName(t("statisticsWord"))
       .setDesc(t("statisticsWordExplained"))
@@ -284,6 +287,24 @@ export class SampleSettingTab extends PluginSettingTab {
           await plugin.saveSettings();
         });
       });
+  }
+
+  /**
+   * 库内复制粘贴：开关
+   */
+  private buildInternalCopyProtectionSetting(containerEl: HTMLElement, t: (key: string) => string) {
+    const plugin = this.plugin;
+    new Setting(containerEl)
+      .setName(t("internalCopyProtection"))
+      .setDesc(t("internalCopyProtectionDesc"))
+      .addToggle((component) =>
+        component
+          .setValue(plugin.settings.internalCopyProtection !== false)
+          .onChange(async (value) => {
+            plugin.settings.internalCopyProtection = value;
+            await plugin.saveSettings();
+          })
+      );
   }
   
 }

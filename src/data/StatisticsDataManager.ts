@@ -50,6 +50,18 @@ export class DailyStatisticsDataManager {
    */
   private recentCuts: { amount: number; path: string; time: number }[] = [];
 
+  /**
+   * 最近的「库内复制」事件队列，用于识别「Obsidian 内部复制 → 粘贴」。
+   * 只保留最近 60 秒内的记录。
+   */
+  private recentCopies: { text: string; time: number }[] = [];
+
+  /**
+   * 待扣除的「库内粘贴」字数，按文件路径记录。
+   * 粘贴事件先于 editor-change 触发，因此在计算增量时统一扣除。
+   */
+  private pendingInternalPastes: Record<string, { amount: number; time: number }> = {};
+
   constructor() {
     // 给一个默认值，避免出错
     this.data = new DailyStatisticsData();
@@ -301,10 +313,20 @@ export class DailyStatisticsDataManager {
 
     // 当前文件已有记录：计算本次增量
     const wordCount = this.data.todayWordCount[filepath];
-    const delta = curr - (wordCount.current || 0);
+    let delta = curr - (wordCount.current || 0);
+
+    const settings = (this.plugin && this.plugin.settings) || {};
+
+    // 库内复制粘贴：从 Obsidian 文档内复制并粘贴到同一/另一文档时，该部分不计入当日统计
+    if (delta > 0) {
+      const excluded = this.consumeInternalPaste(filepath, delta);
+      if (excluded > 0) {
+        wordCount.initial = (wordCount.initial || 0) + excluded;
+        delta -= excluded;
+      }
+    }
 
     // 防复制粘贴：单次新增超过阈值视为一次复制/粘贴，该次内容不计入当日统计
-    const settings = (this.plugin && this.plugin.settings) || {};
     const threshold = Number(settings.pasteThreshold);
     if (
       settings.pasteProtection !== false &&
@@ -369,6 +391,102 @@ export class DailyStatisticsDataManager {
       return true;
     }
     return false;
+  }
+
+  /**
+   * 记录一次「库内复制」事件（用户在 Obsidian 编辑器内复制文字时调用）。
+   * 只保留最近 60 秒内的记录，供后续粘贴事件比对。
+   */
+  recordInternalCopy(text: string) {
+    if (!text) {
+      return;
+    }
+    const normalized = this.normalizeText(text);
+    if (!normalized) {
+      return;
+    }
+    const now = Date.now();
+    this.recentCopies = this.recentCopies.filter((c) => now - c.time < 60000);
+    this.recentCopies.push({ text: normalized, time: now });
+  }
+
+  /**
+   * 粘贴事件回调：若粘贴内容与最近一次「库内复制」匹配，
+   * 则视为「Obsidian 内部复制 → 粘贴」，记录待扣除字数，后续计算增量时统一排除。
+   */
+  onInternalPaste(filepath: string, text: string) {
+    const settings = (this.plugin && this.plugin.settings) || {};
+    if (settings.internalCopyProtection === false) {
+      return;
+    }
+    if (!text) {
+      return;
+    }
+    const normalized = this.normalizeText(text);
+    if (!normalized) {
+      return;
+    }
+    const now = Date.now();
+    // 清理过期复制记录
+    this.recentCopies = this.recentCopies.filter((c) => now - c.time < 60000);
+    // 匹配最近一次「库内复制」（取最新匹配项）
+    let matched: { text: string; time: number } | null = null;
+    for (let i = this.recentCopies.length - 1; i >= 0; i--) {
+      if (this.recentCopies[i].text === normalized) {
+        matched = this.recentCopies[i];
+        break;
+      }
+    }
+    if (!matched) {
+      return;
+    }
+    // 按实际插入内容的字数扣除（统一换行符，与编辑器内部一致）
+    const amount = this.getWordCount(
+      text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+    );
+    if (amount <= 0) {
+      return;
+    }
+    if (!this.pendingInternalPastes[filepath]) {
+      this.pendingInternalPastes[filepath] = { amount: 0, time: now };
+    }
+    this.pendingInternalPastes[filepath].amount += amount;
+    this.pendingInternalPastes[filepath].time = now;
+    console.log(
+      "daily-statistics: 识别到 Obsidian 内部复制粘贴 " + amount +
+      " 字（" + filepath + "），不计入当日统计"
+    );
+  }
+
+  /**
+   * 消费待扣除的「库内粘贴」字数，返回本次可扣除的数量（不超过本次增量）。
+   */
+  private consumeInternalPaste(filepath: string, delta: number): number {
+    const pending = this.pendingInternalPastes[filepath];
+    if (!pending) {
+      return 0;
+    }
+    const now = Date.now();
+    if (now - pending.time > 60000) {
+      delete this.pendingInternalPastes[filepath];
+      return 0;
+    }
+    const amount = Math.min(pending.amount, delta);
+    pending.amount -= amount;
+    if (pending.amount <= 0) {
+      delete this.pendingInternalPastes[filepath];
+    }
+    return amount;
+  }
+
+  /**
+   * 规范化文本用于比对：统一换行符，并去掉末尾换行。
+   */
+  private normalizeText(text: string): string {
+    return text
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/\n+$/, "");
   }
 
   updateDate() {

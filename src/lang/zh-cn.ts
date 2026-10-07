@@ -98,4 +98,8 @@ export default {
   , "cutThreshold": "剪切阈值（字）"
   , "cutThresholdDesc": "单次减少超过该字数即视为剪切；设为 0 表示不限制。"
 
+  // 库内复制粘贴
+  , "internalCopyProtection": "库内复制粘贴不计入统计"
+  , "internalCopyProtectionDesc": "开启后，从 Obsidian 某文档内复制文字并粘贴到同一或另一文档时，这部分粘贴内容不计入当日字数统计。"
+
 };
