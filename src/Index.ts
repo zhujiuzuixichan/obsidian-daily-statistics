@@ -24,6 +24,8 @@ export default class DailyStatisticsPlugin extends Plugin {
   debouncedUpdate!: Debouncer<[contents: string | null, filepath: string], void>;
   private statusBarItemEl!: HTMLElement;
   calendarView!: CalendarView;
+  // 是否正在中文输入法组合输入（composing）状态
+  private composing = false;
 
   async onload() {
     await this.loadSettings();
@@ -203,6 +205,30 @@ export default class DailyStatisticsPlugin extends Plugin {
       })
     );
 
+    // 中文输入法组合输入跟踪：组合期间（如拼音）跳过字数统计，避免统计拼音字母而非最终汉字
+    this.registerDomEvent(document, "compositionstart", (evt: CompositionEvent) => {
+      const target = evt.target as HTMLElement | null;
+      if (target && (target.closest(".cm-editor") || target.closest(".markdown-source-view"))) {
+        this.composing = true;
+      }
+    });
+    this.registerDomEvent(document, "compositionend", (evt: CompositionEvent) => {
+      const target = evt.target as HTMLElement | null;
+      if (!(target && (target.closest(".cm-editor") || target.closest(".markdown-source-view")))) {
+        return;
+      }
+      this.composing = false;
+      const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+      if (view && view.file) {
+        const editor = view.editor;
+        const path = view.file.path;
+        // 稍作延迟，等待编辑器完成组合提交后再按最终汉字统计
+        setTimeout(() => {
+          this.debouncedUpdate(editor.getValue(), path);
+        }, 50);
+      }
+    });
+
     // This adds a settings tab so the user can configure various aspects of the plugin
     this.addSettingTab(new SampleSettingTab(this.app, this));
 
@@ -294,6 +320,10 @@ export default class DailyStatisticsPlugin extends Plugin {
 
   // 在预览时更新统计字数
   onEditorChange(editor: Editor, info: MarkdownView | MarkdownFileInfo) {
+    // 中文输入法组合输入期间，编辑器内容包含拼音字母，跳过统计，待组合结束后统一统计
+    if (this.composing) {
+      return;
+    }
     if (info instanceof MarkdownView) {
       const file = info.file;
       const contents = editor.getValue();
