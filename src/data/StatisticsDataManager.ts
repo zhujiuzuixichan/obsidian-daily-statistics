@@ -255,8 +255,8 @@ export class DailyStatisticsDataManager {
     if (this.plugin.settings.statisticsWord) {
       return this.countTheNumberOfWords(text);
     }
-    // 直接统计字数数量
-    return text.length;
+    // 直接统计字数数量（排除空白字符：空格、换行、tab 等）
+    return text.replace(/\s/g, "").length;
   }
 
   /**
